@@ -154,6 +154,7 @@ ns.locales.ruRU = {
         SLASH_CMD_CLEAR        = "очистить базу данных",
         SLASH_CMD_STATS        = "показать статистику в чате",
         SLASH_CMD_MIGRATE      = "принудительное обновление БД",
+        SLASH_CMD_SCALE        = "<0.5 - 2.0> size of the world map icons",  -- [TRANSLATE]
         SLASH_CMD_ATLAS        = "калибратор атласа иконок (для разработчиков)",
         SLASH_CMD_DEFAULT      = "вернуться к языку игрового клиента",
         SLASH_CMD_VERSION      = "показать версию аддона",
@@ -161,6 +162,8 @@ ns.locales.ruRU = {
         SLASH_VERSION          = "Версия",
         SLASH_CLEAR_CONFIRM    = "БД очищена с помощью команды.",
         SLASH_UNKNOWN          = "Неизвестная команда. Введите /fm help",
+        SLASH_SCALE_SET        = "World map icon size: %.1f",  -- [TRANSLATE]
+        SLASH_SCALE_USAGE      = "Type /fm scale and a size from 0.5 to 2.0, e.g. /fm scale 1.5 (current size: %.1f)",  -- [TRANSLATE]
         SLASH_CONFLICT         = "|cffff8800%s также использует /fm|r - FarmMap теперь отвечает на |cffffffff%s|r.",
         SLASH_DEFAULT_DONE     = "Язык сброшен на язык игрового клиента. Введите /reload для применения.",
 

@@ -14,10 +14,12 @@ Anniversary, where not every feature has been tested yet.
 
 ## Features
 
-- Automatic node recording on harvest — herbs, ores, fish and wood
+- Automatic node recording on harvest — herbs, ores, fish and wood. Herbs
+  that drop as a bonus from other herbs (Swiftthistle, Wildvine, the lotuses)
+  are left out of the node they came from
 - Pins on both the minimap and the world map, with the node's icon in its
-  tooltip; on the world map, herb pins show the herb's own icon (a Silverleaf
-  node shows Silverleaf) whatever the icon style
+  tooltip; on the world map, herb pins show the herb's own icon, cut to a
+  circle (a Silverleaf node shows Silverleaf) whatever the icon style
 - Filter buttons on the world map per resource — Shift-drag to move the bar,
   Shift-right-click to flip it horizontal / vertical, a slider to fade it out
   when the cursor is elsewhere; the buttons wear the icons of your world map
@@ -89,6 +91,7 @@ changes — the `.toc` is only read at startup.
 | `/fm clear` | Wipe the node database (settings are preserved) |
 | `/fm stats` | Display harvest statistics in chat |
 | `/fm migrate` | Manually run database migrations |
+| `/fm scale <size>` | Set the size of the world map icons, from 0.5 to 2.0 (e.g. `/fm scale 1.5`) |
 | `/fm atlas` | Open the icon atlas calibrator (for icon pack creators) |
 | `/fm default` | Switch back to your game client's language |
 | `/fm version` | Display the current addon version |

@@ -190,6 +190,7 @@ ns.locales.koKR = {
         SLASH_CMD_CLEAR      = "DB 초기화",
         SLASH_CMD_STATS      = "대화창에 통계 표시",
         SLASH_CMD_MIGRATE    = "강제 DB 갱신",
+        SLASH_CMD_SCALE      = "<0.5 - 2.0> size of the world map icons",  -- [TRANSLATE]
         SLASH_CMD_ATLAS      = "아이콘 아틀라스 보정기 (개발자 도구)",
         SLASH_CMD_DEFAULT    = "게임 클라이언트 언어로 되돌리기",
         SLASH_CMD_VERSION    = "애드온 버전 표시",
@@ -197,6 +198,8 @@ ns.locales.koKR = {
         SLASH_VERSION        = "버전",
         SLASH_CLEAR_CONFIRM  = "명령어를 통해 DB가 초기화되었습니다.",
         SLASH_UNKNOWN        = "알 수 없는 명령어입니다. /fm help를 입력하세요.",
+        SLASH_SCALE_SET      = "World map icon size: %.1f",  -- [TRANSLATE]
+        SLASH_SCALE_USAGE    = "Type /fm scale and a size from 0.5 to 2.0, e.g. /fm scale 1.5 (current size: %.1f)",  -- [TRANSLATE]
         SLASH_CONFLICT       = "|cffff8800%s님도 /fm 명령어를 사용 중입니다|r - 대신 FarmMap이 |cffffffff%s|r의 응답을 처리합니다.",
         SLASH_DEFAULT_DONE   = "게임 클라이언트 언어로 재설정되었습니다. 적용하려면 /reload를 입력하세요.",
 

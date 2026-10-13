@@ -196,6 +196,7 @@ ns.locales.enUS = {
         SLASH_CMD_CLEAR        = "clear the database",
         SLASH_CMD_STATS        = "show statistics in chat",
         SLASH_CMD_MIGRATE      = "force DB migration",
+        SLASH_CMD_SCALE        = "<0.5 - 2.0> size of the world map icons",
         SLASH_CMD_ATLAS        = "icon atlas calibrator (dev tool)",
         SLASH_CMD_DEFAULT      = "go back to the game client language",
         SLASH_CMD_VERSION      = "show addon version",
@@ -203,6 +204,8 @@ ns.locales.enUS = {
         SLASH_VERSION          = "Version",
         SLASH_CLEAR_CONFIRM    = "DB cleared via command.",
         SLASH_UNKNOWN          = "Unknown command. Type /fm help",
+        SLASH_SCALE_SET        = "World map icon size: %.1f",
+        SLASH_SCALE_USAGE      = "Type /fm scale and a size from 0.5 to 2.0, e.g. /fm scale 1.5 (current size: %.1f)",
         SLASH_CONFLICT         = "|cffff8800%s also uses /fm|r - FarmMap answers to |cffffffff%s|r instead.",
         SLASH_DEFAULT_DONE     = "Language reset to the game client language. Type /reload to apply.",
 

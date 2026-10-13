@@ -60,7 +60,7 @@ local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterAllEvents()
 
 -- DB schema version (migrations)
-local DB_VERSION = 4
+local DB_VERSION = 5
 
 -- Client locale, read once at load
 local gameLocale = GetLocale()
@@ -578,6 +578,104 @@ ns.GetLocaleLabel = GetLocaleLabel
 ns.ActiveLocale   = function() return gameLocale end
 
 -- ============================================================
+-- HERBS
+-- ============================================================
+
+-- One table for the herb helpers: the main chunk is close to Lua's
+-- 200-locals limit (see Integ).
+local Herbs = {}
+
+-- Herbs that drop as a bonus while picking OTHER herbs: Swiftthistle from
+-- Mageroyal and Briarthorn, a Fel Lotus from any Outland herb. They say
+-- nothing about the spot, so they never go into a node: not its item list,
+-- not its name (and so not its world map icon), not its harvest history.
+-- The floating harvest text and the session's value still count them: they
+-- are loot all the same.
+Herbs.SECONDARY = {
+    [2452]  = true,  -- Swiftthistle (Mageroyal, Briarthorn)
+    [8153]  = true,  -- Wildvine (Purple Lotus)
+    [22794] = true,  -- Fel Lotus (any Outland herb)
+    [22797] = true,  -- Nightmare Seed (Nightmare Vine)
+    [36908] = true,  -- Frost Lotus (any Northrend herb)
+    [37921] = true,  -- Deadnettle (Goldclover, Tiger Lily, Talandra's Rose)
+    [72238] = true,  -- Golden Lotus (any Pandaria herb, and a node of its own)
+}
+
+-- Rounds the herb icons on the world map (see CreatePoint).
+Herbs.ROUND_MASK = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
+
+-- The loot entries that belong to the node: all of them but the secondary
+-- herbs, unless the loot holds nothing else (a Golden Lotus node of its own).
+-- items and itemIDs run in parallel, as on a node; quantities is optional.
+-- Returns the lists untouched when there is nothing to take out, else
+-- filtered copies.
+function Herbs.NodeLoot(items, itemIDs, quantities)
+    local drop, keep = false, false
+    for i = 1, #items do
+        if Herbs.SECONDARY[itemIDs[i]] then drop = true else keep = true end
+    end
+    if not (drop and keep) then return items, itemIDs, quantities end
+    local outItems, outIDs, outQty = {}, {}, quantities and {}
+    for i = 1, #items do
+        if not Herbs.SECONDARY[itemIDs[i]] then
+            outItems[#outItems + 1] = items[i]
+            outIDs[#outItems] = itemIDs[i] or 0
+            if outQty then outQty[#outItems] = quantities[i] end
+        end
+    end
+    return outItems, outIDs, outQty
+end
+
+-- Takes the secondary herbs out of a stored node, and renames a node named
+-- after one (it sat in the first loot slot) after its own herb. Every herb on
+-- the list shares its expansion with the herbs it drops from, so expID stays
+-- right. Returns whether the node changed.
+function Herbs.CleanNode(node)
+    if type(node) ~= "table" or type(node.items) ~= "table" then return false end
+    local changed = false
+    local items, ids = Herbs.NodeLoot(node.items, node.itemIDs or {})
+    if items ~= node.items then
+        node.items, node.itemIDs, changed = items, ids, true
+    end
+    if Herbs.SECONDARY[node.nameID] and items[1] and not Herbs.SECONDARY[ids[1]] then
+        node.nameID, node.name, changed = ids[1] or 0, items[1], true
+    end
+    return changed
+end
+
+-- Every stored node, and every entry of the per-node harvest history (the
+-- node tooltip and the zone summary read it). Re-runnable, like
+-- BackfillItemIDs: the v5 migration runs it once, /fm migrate and each
+-- import again.
+function Herbs.CleanAll()
+    local fixed = 0
+    for _, nodes in pairs(FarmMapDB) do
+        if type(nodes) == "table" then
+            for _, node in ipairs(nodes) do
+                if Herbs.CleanNode(node) then fixed = fixed + 1 end
+            end
+        end
+    end
+    local byNode = FarmMapStatsDB and FarmMapStatsDB.byNode
+    for _, zone in pairs(type(byNode) == "table" and byNode or {}) do
+        for _, entry in pairs(type(zone) == "table" and zone or {}) do
+            local it = type(entry) == "table" and entry.it
+            if type(it) == "table" then
+                local drop, keep = false, false
+                for id in pairs(it) do
+                    if Herbs.SECONDARY[id] then drop = true else keep = true end
+                end
+                if drop and keep then
+                    for id in pairs(Herbs.SECONDARY) do it[id] = nil end
+                    fixed = fixed + 1
+                end
+            end
+        end
+    end
+    return fixed
+end
+
+-- ============================================================
 -- DATABASE MIGRATIONS
 -- ============================================================
 
@@ -701,6 +799,10 @@ migrations[4] = function()
     return fixed
 end
 
+-- V5: the secondary herbs (Swiftthistle...) out of the recorded nodes and
+-- their harvest history (see Herbs).
+migrations[5] = Herbs.CleanAll
+
 local function RunMigrations(verbose)
     local currentVersion = FarmMapDB.version or 0
     if currentVersion >= DB_VERSION then
@@ -733,6 +835,8 @@ end
 local function ManualMigration()
     RunMigrations(true)
     local recovered = BackfillItemIDs()
+    -- After the backfill: an id it just recovered may be a secondary herb.
+    recovered = recovered + Herbs.CleanAll()
     if recovered > 0 then
         print("|cffffd100" .. L.MIGR_PREFIX .. "|r " .. recovered .. L.MIGR_ENTRIES)
         RefreshAllPins()
@@ -1479,8 +1583,14 @@ local function CreatePoint(nodeData, isMinimap, mapID)
                          and getIcon and getIcon(nodeData.nameID)
         if herbIcon then
             f.tex:SetTexture(herbIcon)
-            -- Crops the dark frame every inventory icon carries.
+            -- Crops the dark frame every inventory icon carries, then rounds
+            -- the square off. The mask follows the icon through the size
+            -- slider: it is anchored to it, not sized.
             f.tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+            f.mask = f:CreateMaskTexture()
+            f.mask:SetTexture(Herbs.ROUND_MASK, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+            f.mask:SetAllPoints(f.tex)
+            f.tex:AddMaskTexture(f.mask)
         elseif pin then
             ApplyPinTexture(f.tex, pin)
             if pin.grow then
@@ -1588,6 +1698,11 @@ local function CreatePoint(nodeData, isMinimap, mapID)
         if not icon then
             icon = GameTooltip:CreateTexture(nil, "ARTWORK")
             icon:SetPoint("TOPRIGHT", GameTooltip, "TOPRIGHT", -10, -10)
+            -- Round herb pins get a round icon here too (see below).
+            icon.mask = GameTooltip:CreateMaskTexture()
+            icon.mask:SetTexture(Herbs.ROUND_MASK, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+            icon.mask:SetAllPoints(icon)
+            icon.round = false
             GameTooltip.farmMapIcon = icon
             GameTooltip:HookScript("OnHide", function(tip) tip.farmMapIcon:Hide() end)
         end
@@ -1601,6 +1716,13 @@ local function CreatePoint(nodeData, isMinimap, mapID)
             icon:SetTexCoord(self.tex:GetTexCoord())
             icon:SetVertexColor(self.tex:GetVertexColor())
             if self.tex.IsDesaturated then icon:SetDesaturated(self.tex:IsDesaturated()) end
+            -- One texture serves every pin: the mask goes on and off with
+            -- the pin hovered, and only when that changes.
+            local round = self.mask ~= nil
+            if round ~= icon.round then
+                if round then icon:AddMaskTexture(icon.mask) else icon:RemoveMaskTexture(icon.mask) end
+                icon.round = round
+            end
             -- Room for it: wider than the two top lines plus the icon, and
             -- tall enough when the tooltip has a single line.
             local l1, l2 = _G.GameTooltipTextLeft1, _G.GameTooltipTextLeft2
@@ -2170,7 +2292,10 @@ local function CaptureLootData()
             local name, _, quality, _, _, _, _, _, _, _, _, _, _, _, expID = GetItemInfo(link)
             name = name or slotName
             if name and not ITEM_BLACKLIST[itemID] then
-                if nodeName == L.UNKNOWN then
+                -- Named after its first item, but not after a secondary herb
+                -- while the node's own herb is in the loot (see Herbs).
+                if nodeName == L.UNKNOWN
+                   or (Herbs.SECONDARY[nodeNameID] and not Herbs.SECONDARY[itemID]) then
                     nodeName      = name
                     nodeNameID    = itemID
                     -- We keep the identifier, not the name: it is the id that
@@ -2236,6 +2361,10 @@ local function ProcessHarvestLoot()
     local lootItems      = data.items
     local lootItemIDs    = data.itemIDs
     local lootQuantities = data.quantities
+    -- What the node keeps: its loot without the secondary herbs (see Herbs).
+    -- The session and the floating text below still get the whole loot.
+    local nodeItems, nodeItemIDs, nodeQuantities =
+        Herbs.NodeLoot(lootItems, lootItemIDs, lootQuantities)
     local nodeName       = data.nodeName
     local nodeNameID     = data.nodeNameID
     local extensionName  = data.extensionName
@@ -2267,16 +2396,16 @@ local function ProcessHarvestLoot()
             if foundType == "Peche" or foundType == "PecheR" then
                 local seenIDs = {}
                 for _, id in ipairs(existingNode.itemIDs or {}) do seenIDs[id] = true end
-                for i, id in ipairs(lootItemIDs) do
+                for i, id in ipairs(nodeItemIDs) do
                     if not seenIDs[id] then
                         seenIDs[id] = true
-                        table.insert(existingNode.items,   lootItems[i])
+                        table.insert(existingNode.items,   nodeItems[i])
                         table.insert(existingNode.itemIDs, id)
                     end
                 end
             else
-                existingNode.items   = lootItems
-                existingNode.itemIDs = lootItemIDs
+                existingNode.items   = nodeItems
+                existingNode.itemIDs = nodeItemIDs
             end
             isUpdated = true
             targetNode = existingNode
@@ -2288,8 +2417,8 @@ local function ProcessHarvestLoot()
         local node = {
             x       = pos.x,       y       = pos.y,
             type    = foundType,   name    = nodeName,
-            nameID  = nodeNameID,  items   = lootItems,
-            itemIDs = lootItemIDs, expName = extensionName,
+            nameID  = nodeNameID,  items   = nodeItems,
+            itemIDs = nodeItemIDs, expName = extensionName,
             expID   = nodeExpID,
             locale  = gameLocale,
         }
@@ -2311,7 +2440,7 @@ local function ProcessHarvestLoot()
     end
 
     RecordStat(foundType)
-    RecordNodeStat(mapID, targetNode, lootItemIDs, lootItems, lootQuantities)
+    RecordNodeStat(mapID, targetNode, nodeItemIDs, nodeItems, nodeQuantities)
     RecordSession(foundType, mapID, nodeName, nodeNameID, lootItemIDs, lootQuantities)
     ShowFloatingLoot(lootItems, lootItemIDs, lootQuantities)
 end
@@ -2641,6 +2770,8 @@ function ns.ApplyImport(plan)
     for _, zone in ipairs(plan.zones) do
         FarmMapDB[zone.mapID] = FarmMapDB[zone.mapID] or {}
         for _, node in ipairs(zone.nodes) do
+            -- Exported by a FarmMap that still records secondary herbs.
+            Herbs.CleanNode(node)
             table.insert(FarmMapDB[zone.mapID], node)
             added = added + 1
         end
@@ -5329,6 +5460,7 @@ local SLASH_COMMANDS = {
     { cmd = "clear",   key = "SLASH_CMD_CLEAR"   },
     { cmd = "stats",   key = "SLASH_CMD_STATS"   },
     { cmd = "migrate", key = "SLASH_CMD_MIGRATE" },
+    { cmd = "scale",   key = "SLASH_CMD_SCALE"   },
     { cmd = "atlas",   key = "SLASH_CMD_ATLAS"   },
     { cmd = "default", key = "SLASH_CMD_DEFAULT" },
     { cmd = "version", key = "SLASH_CMD_VERSION" },
@@ -5455,7 +5587,8 @@ function ns.ResolveSlashPrefix()
 end
 
 SlashCmdList["FARMMAP"] = function(msg)
-    local cmd = strtrim(msg):lower()
+    -- The first word is the command, the rest its argument (/fm scale 1.5).
+    local cmd, arg = strtrim(msg):lower():match("^(%S*)%s*(.-)$")
     cmd = commandAliases[cmd] or cmd
 
     if cmd == "" or cmd == "help" then
@@ -5536,6 +5669,22 @@ SlashCmdList["FARMMAP"] = function(msg)
 
     elseif cmd == "migrate" then
         ManualMigration()
+
+    -- The world map icon size slider, from the chat line. Same range and
+    -- step as the slider (0.5 - 2.0 by 0.1), so the two always agree. A
+    -- decimal comma is read too: "1,5" is how a French player types it.
+    elseif cmd == "scale" then
+        local v = tonumber((arg:gsub(",", ".")))
+        if v then v = math.floor(v * 10 + 0.5) / 10 end
+        if v and v >= 0.5 and v <= 2.0 then
+            FarmMapDB.worldPinScale = v
+            FarmMap_ApplyWorldPinScale()
+            -- The new options window shows the slider live: re-read it.
+            if ns.OptionsWindow then ns.OptionsWindow:Refresh() end
+            print("|cffffd100FarmMap :|r " .. L.SLASH_SCALE_SET:format(v))
+        else
+            print("|cffffd100FarmMap :|r " .. Prefixed(L.SLASH_SCALE_USAGE):format(FarmMapDB.worldPinScale or 1.0))
+        end
 
     elseif cmd == "version" then
         print("|cffffd100FarmMap|r - " .. L.SLASH_VERSION .. " : |cffffffff" .. addonVersion .. "|r  (" .. lastUpdate .. ")")

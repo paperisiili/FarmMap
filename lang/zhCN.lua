@@ -142,6 +142,7 @@ ns.locales.zhCN = {
         SLASH_CMD_CLEAR        = "清除数据库",
         SLASH_CMD_STATS        = "在聊天中显示统计",
         SLASH_CMD_MIGRATE      = "强制数据库迁移",
+        SLASH_CMD_SCALE        = "<0.5 - 2.0> size of the world map icons",  -- [TRANSLATE]
         SLASH_CMD_ATLAS        = "图标地图校准器（开发工具）",
         SLASH_CMD_DEFAULT      = "恢复为游戏客户端语言",
         SLASH_CMD_VERSION      = "显示插件版本",
@@ -149,6 +150,8 @@ ns.locales.zhCN = {
         SLASH_VERSION          = "版本",
         SLASH_CLEAR_CONFIRM    = "数据库已通过命令清除。",
         SLASH_UNKNOWN          = "未知命令。输入 /fm help 查看帮助",
+        SLASH_SCALE_SET        = "World map icon size: %.1f",  -- [TRANSLATE]
+        SLASH_SCALE_USAGE      = "Type /fm scale and a size from 0.5 to 2.0, e.g. /fm scale 1.5 (current size: %.1f)",  -- [TRANSLATE]
         SLASH_CONFLICT         = "|cffff8800%s 也在使用 /fm|r - FarmMap 已接管响应 |cffffffff%s|r。",
         SLASH_DEFAULT_DONE     = "语言已恢复为游戏客户端语言。输入 /reload 以生效。",
 

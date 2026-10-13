@@ -173,6 +173,7 @@ ns.locales.frFR = {
         SLASH_CMD_CLEAR        = "vider la base de données",
         SLASH_CMD_STATS        = "afficher les statistiques dans le chat",
         SLASH_CMD_MIGRATE      = "forcer la migration de la DB",
+        SLASH_CMD_SCALE        = "<0.5 - 2.0> taille des icônes de la carte du monde",
         SLASH_CMD_ATLAS        = "calibreur de coordonnées d'icônes (dev)",
         SLASH_CMD_DEFAULT      = "revenir à la langue du client de jeu",
         SLASH_CMD_VERSION      = "afficher la version de l'addon",
@@ -180,6 +181,8 @@ ns.locales.frFR = {
         SLASH_VERSION          = "Version",
         SLASH_CLEAR_CONFIRM    = "DB vidée via commande.",
         SLASH_UNKNOWN          = "Commande inconnue. Tapez /fm help",
+        SLASH_SCALE_SET        = "Taille des icônes de la carte du monde : %.1f",
+        SLASH_SCALE_USAGE      = "Tapez /fm scale et une taille de 0.5 à 2.0, par exemple /fm scale 1.5 (taille actuelle : %.1f)",
         SLASH_CONFLICT         = "|cffff8800%s utilise aussi /fm|r - FarmMap répond à |cffffffff%s|r à la place.",
         SLASH_DEFAULT_DONE     = "Langue réinitialisée sur celle du client de jeu. Tapez /reload pour appliquer.",
 
