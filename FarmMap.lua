@@ -1432,6 +1432,12 @@ function ItemPins.Dress(f, icon, nodeType)
     f.ring:SetVertexColor(c[1], c[2], c[3])
     local size = f:GetWidth() * ItemPins.FACTOR
     f:SetSize(size, size)
+    -- Draws the pin as one piece. All pins share one frame level, and the
+    -- game draws a level layer by layer: every icon first, then every ring,
+    -- so where pins overlap, the rings of the lower ones crossed the icon on
+    -- top. Blizzard's own quest pins do the same (flattenRenderLayers in
+    -- QuestPinTemplate). Guarded, should a client lack it.
+    if f.SetFlattensRenderLayers then f:SetFlattensRenderLayers(true) end
 end
 
 -- Every world map pin currently handed to HBDPins. The size slider walks this
