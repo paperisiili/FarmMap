@@ -1466,7 +1466,22 @@ local function CreatePoint(nodeData, isMinimap, mapID)
         local style = FarmMapDB and FarmMapDB.worldmapStyle or "blizzard"
         local pins  = GetStylePins(style)
         local pin   = pins and pins[nodeData.type]
-        if pin then
+        -- Herbs wear their own item's icon here, whatever the style: a
+        -- Silverleaf node shows Silverleaf. nameID is the node's first loot
+        -- item, the herb itself. A node without one (an old entry the V2
+        -- migration could not resolve) keeps the style's icon. Resolved here
+        -- rather than aliased at the top of the file: the main chunk is close
+        -- to Lua's 200-locals limit (see Integ). GetItemIcon is the Classic
+        -- fallback, should a client lack the C_Item one.
+        local getIcon  = (C_Item and C_Item.GetItemIconByID) or GetItemIcon
+        local herbIcon = (nodeData.type == "Herbo" or nodeData.type == "HerboR")
+                         and nodeData.nameID and nodeData.nameID > 0
+                         and getIcon and getIcon(nodeData.nameID)
+        if herbIcon then
+            f.tex:SetTexture(herbIcon)
+            -- Crops the dark frame every inventory icon carries.
+            f.tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+        elseif pin then
             ApplyPinTexture(f.tex, pin)
             if pin.grow then
                 f.grow = pin.grow   -- kept for FarmMap_ApplyWorldPinScale
