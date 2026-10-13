@@ -1414,6 +1414,14 @@ do
     ItemPins.COORDS = { 0.5 - half, 0.5 + half, 0.5 - half, 0.5 + half }
 end
 
+-- An item's icon, or nil. Resolved at call time rather than aliased at the
+-- top of the file: the main chunk is close to Lua's 200-locals limit.
+-- GetItemIcon is the Classic fallback, should a client lack the C_Item one.
+function ItemPins.Icon(itemID)
+    local get = (C_Item and C_Item.GetItemIconByID) or GetItemIcon
+    return itemID and itemID > 0 and get and get(itemID) or nil
+end
+
 -- Dresses world map pin f with item icon `icon`: the icon masked to the disc,
 -- the tinted ring on top, the pin grown to fit both.
 function ItemPins.Dress(f, icon, nodeType)
@@ -1453,6 +1461,8 @@ local activeWorldPins = {}
 local function ClearWorldMapPins()
     HBDPins:RemoveAllWorldMapIcons(addonName)
     wipe(activeWorldPins)
+    -- The pin list (see ItemPins.HoverStart) must not outlive its pins.
+    if ItemPins.tip then ItemPins.tip:Hide() end
 end
 
 function ns.MinimapProximity.Clear()
@@ -1570,6 +1580,133 @@ function Integ.ToggleWaypoint(mapID, nodeData)
     })
 end
 
+-- ---- The world map's pin list ----
+-- The node tooltip was too big for the world map, and none at all left a pin
+-- hidden under another unnamed. This small list names every pin under the
+-- cursor instead, one line each: item icon and name, repeats counted.
+
+-- Sizes in pixels. In the table, not locals: the main chunk is at Lua's
+-- 200-locals limit.
+ItemPins.TIP  = { icon = 16, row = 18, pad = 6 }
+ItemPins.CROP = { 0.08, 0.92, 0.08, 0.92 }   -- the inventory icon's frame off
+
+function ItemPins.TipFrame()
+    if ItemPins.tip then return ItemPins.tip end
+    local tip = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+    tip:SetFrameStrata("TOOLTIP")
+    tip:SetClampedToScreen(true)
+    tip:SetBackdrop({
+        bgFile   = "Interface\\ChatFrame\\ChatFrameBackground",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 8, edgeSize = 10,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 },
+    })
+    tip:SetBackdropColor(0.05, 0.05, 0.05, 0.9)
+    tip:SetBackdropBorderColor(0.5, 0.5, 0.5, 1)
+    tip.rows = {}
+    tip:Hide()
+    tip:SetScript("OnUpdate", function(self) ItemPins.UpdateTip(self) end)
+    ItemPins.tip = tip
+    return tip
+end
+
+-- Pins that can come under the cursor while it stays on `pin`: those whose
+-- rectangle meets its own. Taken once on entering, so the per-frame check
+-- only looks at a handful of pins, not the whole map. Pins of other maps
+-- are never placed, and have no rectangle.
+function ItemPins.Neighbours(pin)
+    local list = { pin }
+    local l, b, w, h = pin:GetRect()
+    if not l then return list end
+    for _, p in ipairs(activeWorldPins) do
+        if p ~= pin and p:IsVisible() then
+            local l2, b2, w2, h2 = p:GetRect()
+            if l2 and l2 < l + w and l < l2 + w2 and b2 < b + h and b < b2 + h2 then
+                list[#list + 1] = p
+            end
+        end
+    end
+    return list
+end
+
+-- Every frame while shown: which neighbours are under the cursor. The list
+-- is only rebuilt when that changes. The hovered pin always counts.
+function ItemPins.UpdateTip(tip)
+    local under, key = {}, ""
+    for i, p in ipairs(tip.near or {}) do
+        if i == 1 or p:IsMouseOver() then
+            under[#under + 1] = p
+            key = key .. i .. ","
+        end
+    end
+    if key == tip.key then return end
+    tip.key = key
+
+    -- One line per item, the hovered pin's first.
+    local entries, byName = {}, {}
+    for _, p in ipairs(under) do
+        local node = p.nodeData
+        local name = Integ.NodeName(node)
+        local e = byName[name]
+        if e then
+            e.count = e.count + 1
+        else
+            local icon, coords = ItemPins.Icon(node.nameID), ItemPins.CROP
+            if not icon then
+                -- No item known: the pin's own style icon.
+                icon, coords = p.tex:GetTexture(), { p.tex:GetTexCoord() }
+            end
+            e = { name = name, icon = icon, coords = coords, count = 1 }
+            byName[name] = e
+            entries[#entries + 1] = e
+        end
+    end
+
+    local T, width = ItemPins.TIP, 0
+    for i, e in ipairs(entries) do
+        local row = tip.rows[i]
+        if not row then
+            row = { icon = tip:CreateTexture(nil, "ARTWORK"),
+                    text = tip:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall") }
+            row.icon:SetSize(T.icon, T.icon)
+            row.icon:SetPoint("TOPLEFT", tip, "TOPLEFT", T.pad, -T.pad - (i - 1) * T.row)
+            row.text:SetPoint("LEFT", row.icon, "RIGHT", 4, 0)
+            tip.rows[i] = row
+        end
+        row.icon:SetTexture(e.icon)
+        row.icon:SetTexCoord(unpack(e.coords))
+        row.text:SetText(e.count > 1 and (e.name .. "  x" .. e.count) or e.name)
+        row.icon:Show()
+        row.text:Show()
+        width = math.max(width, row.text:GetStringWidth() or 0)
+    end
+    for i = #entries + 1, #tip.rows do
+        tip.rows[i].icon:Hide()
+        tip.rows[i].text:Hide()
+    end
+    tip:SetSize(T.pad * 2 + T.icon + 4 + math.ceil(width),
+                T.pad * 2 + T.icon + (#entries - 1) * T.row)
+end
+
+function ItemPins.HoverStart(pin)
+    local tip = ItemPins.TipFrame()
+    tip.owner, tip.near, tip.key = pin, ItemPins.Neighbours(pin), nil
+    tip:ClearAllPoints()
+    tip:SetPoint("BOTTOMLEFT", pin, "TOPRIGHT", 2, 2)
+    ItemPins.UpdateTip(tip)
+    tip:Show()
+end
+
+-- Only the pin that opened the list closes it: entering the next pin can
+-- come before leaving this one.
+function ItemPins.HoverEnd(pin)
+    local tip = ItemPins.tip
+    if tip and tip.owner == pin then
+        tip:Hide()
+        tip.owner, tip.near = nil, nil
+    end
+end
+
 local function CreatePoint(nodeData, isMinimap, mapID)
     local f = CreateFrame("Frame", nil, nil)
     if isMinimap then
@@ -1620,14 +1757,8 @@ local function CreatePoint(nodeData, isMinimap, mapID)
         -- (see ItemPins): a Silverleaf node shows Silverleaf. nameID is the
         -- node's first loot item - the herb itself, or a fishing spot's
         -- latest catch. A node without one (an old entry the V2 migration
-        -- could not resolve) keeps the style's icon. Resolved here rather
-        -- than aliased at the top of the file: the main chunk is close to
-        -- Lua's 200-locals limit (see Integ). GetItemIcon is the Classic
-        -- fallback, should a client lack the C_Item one.
-        local getIcon  = (C_Item and C_Item.GetItemIconByID) or GetItemIcon
-        local itemIcon = ItemPins.TYPES[nodeData.type]
-                         and nodeData.nameID and nodeData.nameID > 0
-                         and getIcon and getIcon(nodeData.nameID)
+        -- could not resolve) keeps the style's icon.
+        local itemIcon = ItemPins.TYPES[nodeData.type] and ItemPins.Icon(nodeData.nameID)
         if itemIcon then
             ItemPins.Dress(f, itemIcon, nodeData.type)
         elseif pin then
@@ -1655,8 +1786,7 @@ local function CreatePoint(nodeData, isMinimap, mapID)
     end
 
     -- Tooltip on hover, minimap pins only (attached below). World map pins
-    -- show none: they keep their clicks, without a tooltip popping up under
-    -- the cursor all over the map.
+    -- get the compact pin list instead (see ItemPins.HoverStart).
     local function ShowTooltip(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:ClearLines()
@@ -1767,6 +1897,10 @@ local function CreatePoint(nodeData, isMinimap, mapID)
     if isMinimap then
         f:SetScript("OnEnter", ShowTooltip)
         f:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    else
+        f.nodeData = nodeData   -- read by the pin list
+        f:SetScript("OnEnter", ItemPins.HoverStart)
+        f:SetScript("OnLeave", ItemPins.HoverEnd)
     end
 
     -- Clic gauche : point TomTom ou WaypointUI ; clic droit : menu contextuel de suppression

@@ -18,10 +18,11 @@ Anniversary, where not every feature has been tested yet.
   that drop as a bonus from other herbs (Swiftthistle, Wildvine, the lotuses)
   are left out of the node they came from
 - Pins on both the minimap and the world map. Minimap pins have a tooltip
-  with the node's icon; world map pins have none, and herb and fish pins
-  there show the item's own icon (a Silverleaf node shows Silverleaf, a
-  fishing spot its latest catch) in a ring, green for herbs and blue for
-  fish, whatever the icon style
+  with the node's icon; on the world map, a small list names every pin under
+  the cursor (item icon and name), so overlapping pins can be told apart.
+  Herb and fish pins there show the item's own icon (a Silverleaf node shows
+  Silverleaf, a fishing spot its latest catch) in a ring, green for herbs and
+  blue for fish, whatever the icon style
 - Filter buttons on the world map per resource — Shift-drag to move the bar,
   Shift-right-click to flip it horizontal / vertical, a slider to fade it out
   when the cursor is elsewhere; the buttons wear the icons of your world map
