@@ -17,9 +17,10 @@ Anniversary, where not every feature has been tested yet.
 - Automatic node recording on harvest — herbs, ores, fish and wood. Herbs
   that drop as a bonus from other herbs (Swiftthistle, Wildvine, the lotuses)
   are left out of the node they came from
-- Pins on both the minimap and the world map, with the node's icon in its
-  tooltip; on the world map, herb pins show the herb's own icon, cut to a
-  circle (a Silverleaf node shows Silverleaf) whatever the icon style
+- Pins on both the minimap and the world map. Minimap pins have a tooltip
+  with the node's icon; world map pins have none, and herb pins there show
+  the herb's own icon, cut to a circle (a Silverleaf node shows Silverleaf)
+  whatever the icon style
 - Filter buttons on the world map per resource — Shift-drag to move the bar,
   Shift-right-click to flip it horizontal / vertical, a slider to fade it out
   when the cursor is elsewhere; the buttons wear the icons of your world map

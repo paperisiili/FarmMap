@@ -1614,8 +1614,10 @@ local function CreatePoint(nodeData, isMinimap, mapID)
         f.tex:SetVertexColor(1, 0.85, 0.1)
     end
 
-    -- Tooltip on hover
-    f:SetScript("OnEnter", function(self)
+    -- Tooltip on hover, minimap pins only (attached below). World map pins
+    -- show none: they keep their clicks, without a tooltip popping up under
+    -- the cursor all over the map.
+    local function ShowTooltip(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:ClearLines()
         GameTooltip:AddLine(Integ.NodeName(nodeData), 1, 0.82, 0)
@@ -1698,31 +1700,17 @@ local function CreatePoint(nodeData, isMinimap, mapID)
         if not icon then
             icon = GameTooltip:CreateTexture(nil, "ARTWORK")
             icon:SetPoint("TOPRIGHT", GameTooltip, "TOPRIGHT", -10, -10)
-            -- Round herb pins get a round icon here too (see below).
-            icon.mask = GameTooltip:CreateMaskTexture()
-            icon.mask:SetTexture(Herbs.ROUND_MASK, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-            icon.mask:SetAllPoints(icon)
-            icon.round = false
             GameTooltip.farmMapIcon = icon
             GameTooltip:HookScript("OnHide", function(tip) tip.farmMapIcon:Hide() end)
         end
-        -- Twice as big over the world map, where the tooltip has room
-        -- (Kroosstii: 28 px filled a third of the corner); the minimap's
-        -- tooltip stays compact.
-        local iconSize = isMinimap and 28 or 56
+        -- Compact, like the minimap's tooltip.
+        local iconSize = 28
         if FarmMapDB and FarmMapDB.tooltipIcon ~= false and self.tex:GetTexture() then
             icon:SetSize(iconSize, iconSize)
             icon:SetTexture(self.tex:GetTexture())
             icon:SetTexCoord(self.tex:GetTexCoord())
             icon:SetVertexColor(self.tex:GetVertexColor())
             if self.tex.IsDesaturated then icon:SetDesaturated(self.tex:IsDesaturated()) end
-            -- One texture serves every pin: the mask goes on and off with
-            -- the pin hovered, and only when that changes.
-            local round = self.mask ~= nil
-            if round ~= icon.round then
-                if round then icon:AddMaskTexture(icon.mask) else icon:RemoveMaskTexture(icon.mask) end
-                icon.round = round
-            end
             -- Room for it: wider than the two top lines plus the icon, and
             -- tall enough when the tooltip has a single line.
             local l1, l2 = _G.GameTooltipTextLeft1, _G.GameTooltipTextLeft2
@@ -1735,8 +1723,11 @@ local function CreatePoint(nodeData, isMinimap, mapID)
         else
             icon:Hide()
         end
-    end)
-    f:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    end
+    if isMinimap then
+        f:SetScript("OnEnter", ShowTooltip)
+        f:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    end
 
     -- Clic gauche : point TomTom ou WaypointUI ; clic droit : menu contextuel de suppression
     f:SetScript("OnMouseUp", function(self, button)
