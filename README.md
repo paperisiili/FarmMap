@@ -18,9 +18,10 @@ Anniversary, where not every feature has been tested yet.
   that drop as a bonus from other herbs (Swiftthistle, Wildvine, the lotuses)
   are left out of the node they came from
 - Pins on both the minimap and the world map. Minimap pins have a tooltip
-  with the node's icon; world map pins have none, and herb pins there show
-  the herb's own icon, cut to a circle (a Silverleaf node shows Silverleaf)
-  whatever the icon style
+  with the node's icon; world map pins have none, and herb and fish pins
+  there show the item's own icon (a Silverleaf node shows Silverleaf, a
+  fishing spot its latest catch) in a ring, green for herbs and blue for
+  fish, whatever the icon style
 - Filter buttons on the world map per resource — Shift-drag to move the bar,
   Shift-right-click to flip it horizontal / vertical, a slider to fade it out
   when the cursor is elsewhere; the buttons wear the icons of your world map
@@ -311,11 +312,15 @@ The exceptions are not artwork. The UI frame textures in `Textures/ui/` are
 plain rounded rectangles computed by a small script,
 [`tools/make_frame_textures.py`](tools/make_frame_textures.py) — each pixel's
 opacity comes from geometry alone, not from an image generator, and anyone can
-run the script to rebuild them. `data/ClassicItemExpansion.lua`, which tells
+run the script to rebuild them. The ring around the world map's herb and fish
+icons (`Textures/pin-ring.tga`, with the disc that cuts the icons to fit,
+`Textures/pin-disc.tga`) is made the same way by
+[`tools/make_pin_ring.py`](tools/make_pin_ring.py): circles, not a drawing.
+`data/ClassicItemExpansion.lua`, which tells
 the Classic clients which expansion a gathered item belongs to, is generated
 from public game data by
 [`tools/make_classic_expansions.py`](tools/make_classic_expansions.py). Like
-the rest of FarmMap's code, both scripts were written with AI assistance.
+the rest of FarmMap's code, these scripts were written with AI assistance.
 
 World of Warcraft and Blizzard Entertainment are trademarks or registered
 trademarks of Blizzard Entertainment, Inc. This addon is not affiliated with

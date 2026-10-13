@@ -601,9 +601,6 @@ Herbs.SECONDARY = {
     [72238] = true,  -- Golden Lotus (any Pandaria herb, and a node of its own)
 }
 
--- Rounds the herb icons on the world map (see CreatePoint).
-Herbs.ROUND_MASK = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
-
 -- The loot entries that belong to the node: all of them but the secondary
 -- herbs, unless the loot holds nothing else (a Golden Lotus node of its own).
 -- items and itemIDs run in parallel, as on a node; quantities is optional.
@@ -1394,6 +1391,49 @@ local PIN_BASE_SIZE = 16
 -- read too big there (Kroosstii, on Era): 2 px less.
 local WORLD_PIN_BASE_SIZE = IS_CLASSIC and 14 or PIN_BASE_SIZE
 
+-- World map herb and fish pins wear their own item's icon, cut round and set
+-- in a ring tinted per resource: green herbs, blue fish, gold for a rich
+-- node. Both textures come from tools/make_pin_ring.py, which explains their
+-- geometry. A table, not locals: the main chunk is close to Lua's 200-locals
+-- limit (see Integ).
+local ItemPins = {
+    -- Node types that get one, and the TYPE_COLORS entry tinting their ring.
+    TYPES  = { Herbo = "Herbo", HerboR = "Herbo", Peche = "Peche", PecheR = "Peche" },
+    RICH   = { 1, 0.85, 0.1 },   -- the gold every rich pin gets
+    RING   = TEX_PATH .. "pin-ring",
+    DISC   = TEX_PATH .. "pin-disc",
+    -- The band's inner edge sits at 24/32 of the ring: a ringed pin is drawn
+    -- 4/3 as big, so the icon inside keeps a plain pin's size.
+    FACTOR = 32 / 24,
+}
+-- The disc spans 25/32 of the pin. The icon is stretched over the pin so that
+-- the disc shows it cropped of the dark frame every inventory icon carries
+-- (0.08 - 0.92). What falls outside 0 - 1 is masked away anyway.
+do
+    local half = (0.92 - 0.08) / (25 / 32) / 2
+    ItemPins.COORDS = { 0.5 - half, 0.5 + half, 0.5 - half, 0.5 + half }
+end
+
+-- Dresses world map pin f with item icon `icon`: the icon masked to the disc,
+-- the tinted ring on top, the pin grown to fit both.
+function ItemPins.Dress(f, icon, nodeType)
+    f.tex:SetTexture(icon)
+    f.tex:SetTexCoord(unpack(ItemPins.COORDS))
+    -- Anchored, not sized: the mask and the ring follow the pin through the
+    -- size slider.
+    f.mask = f:CreateMaskTexture()
+    f.mask:SetTexture(ItemPins.DISC, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    f.mask:SetAllPoints(f.tex)
+    f.tex:AddMaskTexture(f.mask)
+    f.ring = f:CreateTexture(nil, "OVERLAY", nil, 1)
+    f.ring:SetTexture(ItemPins.RING)
+    f.ring:SetAllPoints(f)
+    local c = RICH_TYPES[nodeType] and ItemPins.RICH or TYPE_COLORS[ItemPins.TYPES[nodeType]]
+    f.ring:SetVertexColor(c[1], c[2], c[3])
+    local size = f:GetWidth() * ItemPins.FACTOR
+    f:SetSize(size, size)
+end
+
 -- Every world map pin currently handed to HBDPins. The size slider walks this
 -- list to resize the pins in place: HBDPins anchors our icon CENTER-on-CENTER
 -- to its own pin frame, so a resized icon stays exactly on its coordinate and
@@ -1570,27 +1610,20 @@ local function CreatePoint(nodeData, isMinimap, mapID)
         local style = FarmMapDB and FarmMapDB.worldmapStyle or "blizzard"
         local pins  = GetStylePins(style)
         local pin   = pins and pins[nodeData.type]
-        -- Herbs wear their own item's icon here, whatever the style: a
-        -- Silverleaf node shows Silverleaf. nameID is the node's first loot
-        -- item, the herb itself. A node without one (an old entry the V2
-        -- migration could not resolve) keeps the style's icon. Resolved here
-        -- rather than aliased at the top of the file: the main chunk is close
-        -- to Lua's 200-locals limit (see Integ). GetItemIcon is the Classic
+        -- Herbs and fish wear their own item's icon here, whatever the style
+        -- (see ItemPins): a Silverleaf node shows Silverleaf. nameID is the
+        -- node's first loot item - the herb itself, or a fishing spot's
+        -- latest catch. A node without one (an old entry the V2 migration
+        -- could not resolve) keeps the style's icon. Resolved here rather
+        -- than aliased at the top of the file: the main chunk is close to
+        -- Lua's 200-locals limit (see Integ). GetItemIcon is the Classic
         -- fallback, should a client lack the C_Item one.
         local getIcon  = (C_Item and C_Item.GetItemIconByID) or GetItemIcon
-        local herbIcon = (nodeData.type == "Herbo" or nodeData.type == "HerboR")
+        local itemIcon = ItemPins.TYPES[nodeData.type]
                          and nodeData.nameID and nodeData.nameID > 0
                          and getIcon and getIcon(nodeData.nameID)
-        if herbIcon then
-            f.tex:SetTexture(herbIcon)
-            -- Crops the dark frame every inventory icon carries, then rounds
-            -- the square off. The mask follows the icon through the size
-            -- slider: it is anchored to it, not sized.
-            f.tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-            f.mask = f:CreateMaskTexture()
-            f.mask:SetTexture(Herbs.ROUND_MASK, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-            f.mask:SetAllPoints(f.tex)
-            f.tex:AddMaskTexture(f.mask)
+        if itemIcon then
+            ItemPins.Dress(f, itemIcon, nodeData.type)
         elseif pin then
             ApplyPinTexture(f.tex, pin)
             if pin.grow then
@@ -1609,8 +1642,9 @@ local function CreatePoint(nodeData, isMinimap, mapID)
         end
     end
 
-    -- Gold tint for rich nodes
-    if isRich then
+    -- Gold tint for rich nodes. A ringed pin wears it on its ring instead:
+    -- gold over an item icon only muddies it.
+    if isRich and not f.ring then
         f.tex:SetVertexColor(1, 0.85, 0.1)
     end
 
@@ -1879,8 +1913,9 @@ end
 function FarmMap_ApplyWorldPinScale()
     local size = WORLD_PIN_BASE_SIZE * (FarmMapDB and FarmMapDB.worldPinScale or 1.0)
     for _, pin in ipairs(activeWorldPins) do
-        -- A pack's extra pixels (grow) stay on top of the scaled size.
-        local s = size + (pin.grow or 0)
+        -- A pack's extra pixels (grow) stay on top of the scaled size, and
+        -- a ringed pin stays 4/3 as big (see ItemPins).
+        local s = size * (pin.ring and ItemPins.FACTOR or 1) + (pin.grow or 0)
         pin:SetSize(s, s)
     end
 end
