@@ -1719,6 +1719,7 @@ local function CreatePoint(nodeData, isMinimap, mapID)
         -- request asked for.
         local size = WORLD_PIN_BASE_SIZE * (FarmMapDB and FarmMapDB.worldPinScale or 1.0)
         f:SetSize(size, size)
+        f:SetAlpha((FarmMapDB and FarmMapDB.worldPinAlpha or 100) / 100)
         activeWorldPins[#activeWorldPins + 1] = f
     end
     f:EnableMouse(true)
@@ -2057,6 +2058,15 @@ function FarmMap_ApplyWorldPinScale()
         -- a ringed pin stays 4/3 as big (see ItemPins).
         local s = size * (pin.ring and ItemPins.FACTOR or 1) + (pin.grow or 0)
         pin:SetSize(s, s)
+    end
+end
+
+-- Node icon opacity (/fm opacity), in place like the size above. The frame's
+-- alpha covers a ringed pin's ring and icon alike.
+function FarmMap_ApplyWorldPinAlpha()
+    local alpha = (FarmMapDB and FarmMapDB.worldPinAlpha or 100) / 100
+    for _, pin in ipairs(activeWorldPins) do
+        pin:SetAlpha(alpha)
     end
 end
 
@@ -3713,6 +3723,7 @@ local function ClearNodeDatabase()
         filterBarHorizontal = FarmMapDB.filterBarHorizontal,
         filterBarScale   = FarmMapDB.filterBarScale,
         worldPinScale    = FarmMapDB.worldPinScale,
+        worldPinAlpha    = FarmMapDB.worldPinAlpha,
         -- Position and visibility of the minimap button: clearing the node
         -- database must not move the button back.
         minimapIcon      = FarmMapDB.minimapIcon,
@@ -4156,9 +4167,11 @@ local function CreateOptions()
 
     local sliderPin = MakeSlider(displayPanel, pinTitle, L.WORLDPIN_SIZE, 0.5, 2.0, 0.1, "worldPinScale", "%.1f",
         function() if FarmMap_ApplyWorldPinScale then FarmMap_ApplyWorldPinScale() end end)
+    local sliderPinAlpha = MakeSlider(displayPanel, sliderPin, L.WORLDPIN_ALPHA, 10, 100, 5, "worldPinAlpha", "%d%%",
+        function() if FarmMap_ApplyWorldPinAlpha then FarmMap_ApplyWorldPinAlpha() end end)
 
     local checkNodeItems = CreateFrame("CheckButton", "FarmMapNodeItemsCheck", displayPanel, "InterfaceOptionsCheckButtonTemplate")
-    checkNodeItems:SetPoint("TOPLEFT", sliderPin, "BOTTOMLEFT", 0, -4)
+    checkNodeItems:SetPoint("TOPLEFT", sliderPinAlpha, "BOTTOMLEFT", 0, -4)
     _G[checkNodeItems:GetName() .. "Text"]:SetText(L.DISPLAY_NODE_ITEMS)
     checkNodeItems:SetChecked(FarmMapDB and FarmMapDB.showNodeItemStats or false)
     checkNodeItems:SetScript("OnClick", function(self) FarmMapDB.showNodeItemStats = self:GetChecked() end)
@@ -4218,7 +4231,7 @@ local function CreateOptions()
         for _, s in ipairs({
             { sliderSize, "floatSize" }, { sliderDur, "floatDuration" },
             { sliderBarSize, "filterBarScale" }, { sliderBarAlpha, "filterBarAlpha" },
-            { sliderPin, "worldPinScale" },
+            { sliderPin, "worldPinScale" }, { sliderPinAlpha, "worldPinAlpha" },
         }) do
             local value = FarmMapDB[s[2]]
             if value then s[1].slider:SetValue(value) end
@@ -5124,6 +5137,8 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
         if FarmMapDB.filterBarAlpha == nil then FarmMapDB.filterBarAlpha = 100 end
         if FarmMapDB.filterBarScale == nil then FarmMapDB.filterBarScale = 1.0 end
         if FarmMapDB.worldPinScale  == nil then FarmMapDB.worldPinScale  = 1.0 end
+        -- 100 = fully opaque, as the world map pins always were.
+        if FarmMapDB.worldPinAlpha  == nil then FarmMapDB.worldPinAlpha  = 100 end
         -- Off by default, unlike every other display toggle: it is extra noise
         -- on a tooltip that is already dense, and only a minority will want it.
         if FarmMapDB.showNodeItemStats == nil then FarmMapDB.showNodeItemStats = false end
@@ -5627,6 +5642,7 @@ local SLASH_COMMANDS = {
     { cmd = "stats",   key = "SLASH_CMD_STATS"   },
     { cmd = "migrate", key = "SLASH_CMD_MIGRATE" },
     { cmd = "scale",   key = "SLASH_CMD_SCALE"   },
+    { cmd = "opacity", key = "SLASH_CMD_OPACITY" },
     { cmd = "atlas",   key = "SLASH_CMD_ATLAS"   },
     { cmd = "default", key = "SLASH_CMD_DEFAULT" },
     { cmd = "version", key = "SLASH_CMD_VERSION" },
@@ -5850,6 +5866,22 @@ SlashCmdList["FARMMAP"] = function(msg)
             print("|cffffd100FarmMap :|r " .. L.SLASH_SCALE_SET:format(v))
         else
             print("|cffffd100FarmMap :|r " .. Prefixed(L.SLASH_SCALE_USAGE):format(FarmMapDB.worldPinScale or 1.0))
+        end
+
+    -- The world map icon opacity slider, from the chat line, in percent. Same
+    -- range and step as the slider (10 - 100 by 5); "60%" and "60 %" are read
+    -- too. 10, not 0: a pin at 0 is invisible yet still takes the cursor, and
+    -- the filter bar already hides a resource's pins altogether.
+    elseif cmd == "opacity" then
+        local v = tonumber((arg:gsub("[%s%%]", "")))
+        if v then v = math.floor(v / 5 + 0.5) * 5 end
+        if v and v >= 10 and v <= 100 then
+            FarmMapDB.worldPinAlpha = v
+            FarmMap_ApplyWorldPinAlpha()
+            if ns.OptionsWindow then ns.OptionsWindow:Refresh() end
+            print("|cffffd100FarmMap :|r " .. L.SLASH_OPACITY_SET:format(v))
+        else
+            print("|cffffd100FarmMap :|r " .. Prefixed(L.SLASH_OPACITY_USAGE):format(FarmMapDB.worldPinAlpha or 100))
         end
 
     elseif cmd == "version" then

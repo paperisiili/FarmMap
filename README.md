@@ -22,7 +22,8 @@ Anniversary, where not every feature has been tested yet.
   the cursor (item icon and name), so overlapping pins can be told apart.
   Herb and fish pins there show the item's own icon (a Silverleaf node shows
   Silverleaf, a fishing spot its latest catch) in a ring, green for herbs and
-  blue for fish, whatever the icon style
+  blue for fish, whatever the icon style. World map pins can also be made
+  see-through, from 10 to 100 % (`/fm opacity`)
 - Filter buttons on the world map per resource — Shift-drag to move the bar,
   Shift-right-click to flip it horizontal / vertical, a slider to fade it out
   when the cursor is elsewhere; the buttons wear the icons of your world map
@@ -95,6 +96,7 @@ changes — the `.toc` is only read at startup.
 | `/fm stats` | Display harvest statistics in chat |
 | `/fm migrate` | Manually run database migrations |
 | `/fm scale <size>` | Set the size of the world map icons, from 0.5 to 2.0 (e.g. `/fm scale 1.5`) |
+| `/fm opacity <percent>` | Set the opacity of the world map icons, from 10 to 100 % (e.g. `/fm opacity 60`) |
 | `/fm atlas` | Open the icon atlas calibrator (for icon pack creators) |
 | `/fm default` | Switch back to your game client's language |
 | `/fm version` | Display the current addon version |

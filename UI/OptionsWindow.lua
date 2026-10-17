@@ -1399,6 +1399,15 @@ ItemsPage({
                   FarmMapDB.worldPinScale = v
                   if FarmMap_ApplyWorldPinScale then FarmMap_ApplyWorldPinScale() end
               end },
+            -- Same setting as /fm opacity.
+            { type = "slider", key = "worldPinAlpha",
+              name = L("UI_WORLDPIN_ALPHA"), min = 10, max = 100, step = 5,
+              format = function(v) return ("%d %%"):format(v) end,
+              get = DB("worldPinAlpha"),
+              set = function(v)
+                  FarmMapDB.worldPinAlpha = v
+                  if FarmMap_ApplyWorldPinAlpha then FarmMap_ApplyWorldPinAlpha() end
+              end },
             { type = "switch", key = "showNodeItemStats",
               name = L("UI_NODE_ITEMS"), desc = L("DISPLAY_NODE_ITEMS_HINT"),
               get = DB("showNodeItemStats"),
